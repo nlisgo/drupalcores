@@ -16,9 +16,36 @@ issue_regexp = Regexp.new '#[0-9]+'
 reverts_regexp = Regexp.new '^Revert \"(?<credits>.+#[0-9]+.* by [^:]+:).*'
 reverts_regexp_loose = Regexp.new '^Revert .*(?<issue>#[0-9]+).*'
 
+reverts_loose = Array.new
+reverts_preserve = Array.new
+reverted_new = Array.new
+reverted_new_numbers = Array.new
+commits_old = Array.new
+reverts_old = Array.new
+reverted_old = Array.new
+reverted_old_numbers = Array.new
+
+%x[#{git_command}].split("\n").each do |c|
+  if c.index('Revert') == 0 then
+    reverts_old.push(c[issue_regexp])
+  else
+    commits_old.push(c)
+  end
+end
+
+commits.each_with_index do |c, i|
+  if r = reverts.index{ |item| item == c[issue_regexp] }
+    commits_old.delete_at(i)
+    reverts_old.delete_at(r)
+    reverted_old.push(c)
+    reverted_old_numbers.push(c[issue_regexp])
+  end
+end
+
 %x[#{git_command}].split("\n").each do |c|
   if c =~ reverts_regexp then
     reverts.push(c[reverts_regexp, "credits"])
+    reverts_preserve.push(c[reverts_regexp, "credits"])
   elsif c =~ reverts_regexp_loose then
     reverts.push(c[reverts_regexp_loose, "issue"])
   else
@@ -30,6 +57,8 @@ commits.each_with_index do |c, i|
   if r = reverts.index{ |item| c.index(item) == 0 }
     commits.delete_at(i)
     reverts.delete_at(r)
+    reverted_new.push(c)
+    reverted_new_numbers.push(c[issue_regexp])
   end
 end
 
@@ -37,6 +66,9 @@ commits.to_enum.with_index.reverse_each do |c, i|
   if r = reverts.index{ |item| item[issue_regexp] == c[issue_regexp] }
     commits.delete_at(i)
     reverts.delete_at(r)
+    reverted_new.push(c)
+    reverted_new_numbers.push(c[issue_regexp])
+    reverts_loose.push(c)
   end
 end
 
